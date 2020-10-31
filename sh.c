@@ -69,20 +69,25 @@ char **sh_split_line(char *line)
 
 int sh_execute(char **args)
 {
-	if (args[0] == NULL) {   return 1; } // An empty command was entered.
+	if (args[0] == NULL) {   
+		printf("something was null\n");
+		return 1; 
+	} // An empty command was entered.
 	else
 	{
 		int i = 0;
-		
+		//printf("%c\n", **(args+i));
 		while(args[i] != NULL)
 		{	
+			
+			
 			if(**(args + i) == '<')
 			{
 				args[i] = NULL;
 				close(0);
 				int f = open((args[i+1]), O_RDONLY);
 				int n = dup(f);
-				//close(n);
+				close(n);
 			}
 			else if(**(args+i) == '>')
 			{
@@ -91,62 +96,86 @@ int sh_execute(char **args)
 				close(1);
 				int fd = open((args[i+1]), O_WRONLY);
 				int newd = dup(fd);
-				//close(newd);
-				break;
+				close(newd);
 			}				
+			else if(**(args+i) == '|')
+			{
+				//*(args + i) = NULL;
+				int bsize = 1;
+				while(args[i + bsize] != NULL)
+				{
+					bsize++;
+				}
+
+				char** A = malloc((i+1) * sizeof(char*));
+				char** atemp = A;
+				while(atemp < A + i + 1) {
+    				*atemp = malloc(sizeof(char)*(i+1));
+    				atemp++;
+				}
+				int j = 0;
+				while(j < i)
+				{
+					*(A + j) = *(args + j);
+					//printf("%sA\n", *(A+j));
+					j++;
+				}
+				A[i] = NULL;
+
+				char** B = malloc(bsize * sizeof(char *));
+				char** temp = B;
+				while(temp < B + bsize) {
+    				*temp = malloc(sizeof(char)*(bsize));
+    				temp++;
+				}
+				int k = i+1;
+				int bIter = 0;
+				while(bIter < bsize - 1)
+				{
+					*(B + bIter) = *(args + k);
+					//printf("%sB\n", *(B + bIter));
+					k++;
+					bIter++;
+				}
+				B[bsize - 1] = NULL;
+
+				//printf("%d\n", bsize);
+				//printf("%d\n", i+1);
+
+				int p[2];
+				pipe(p);
+				if(fork() == 0)  // LHS
+				{
+					close(1);
+					dup(p[1]);
+					close(p[0]);
+					close(p[1]);
+					execvp(A[0], A);
+					free(A);
+				}
+				if(fork() == 0) //RHS
+				{
+					close(0);
+					dup(p[0]);
+					close(p[0]);
+					close(p[1]);
+					sh_execute(B);
+					free(B);
+				}
+
+				close(p[0]);
+				close(p[1]);
+				wait(NULL);
+				wait(NULL);
+				//printf("Black");
+				exit(EXIT_SUCCESS);
+
+				
+			}
 			i++;
 		}
 		return sh_launch(args);
 	}
-
- // bool symbol = false;
- // bool symbolLt = false;
-  //int i = 0;
-
-/*
-  if(symbol)
-  {
-	
-		char** new = (char**)malloc(i * sizeof(char*));
-		for(int j = 0; j < i; j++)
-		{
-			new[j] = (char*)malloc(50 * sizeof(char));
-			new[j] = args[j];
-		}
-		close(1);
-		int fd = open((args[i+1]), O_WRONLY);
-		int newf = dup(fd);
-		close(newf);
-		return sh_execute(new);
-  }
-	i = 0;
-	while(args[i] != NULL)
-	{
-		if(**(args + i) == '<')
-		{
-			symbolLt = true;
-			break;
-		}
-		i++;
-	}
-
-  if(symbolLt)
-  {
-		char** temp = (char**)malloc(i * sizeof(char*));
-		for(int j =0; j < i; j++)
-		{
-			temp[j] = (char*)malloc(50 * sizeof(char));
-			temp[j] = args[j];
-		}
-		close(0);
-		int f = open((args[i+1]), O_RDONLY);
-		int n = dup(f);
-		close(n);
-		return sh_execute(temp);
-  }*/
- // else
-//  	return sh_launch(args);   // launch
-
 }
 
 int sh_launch(char **args)
@@ -159,10 +188,10 @@ int sh_launch(char **args)
 
 		execvp(args[0], args);
 
-		return 0;
+		return 1;
 	} 
 	else {
-		printf("fork error\n");
+		//printf("fork error\n");
 	}	
 }
 void sh_loop(void)
